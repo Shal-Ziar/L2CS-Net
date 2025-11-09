@@ -1,4 +1,5 @@
 import argparse
+import logging
 import pathlib
 import numpy as np
 import cv2
@@ -26,7 +27,7 @@ def parse_args():
         description='Gaze evalution using model pretrained with L2CS-Net on Gaze360.')
     parser.add_argument(
         '--device',dest='device', help='Device to run model: cpu or gpu:0',
-        default="cpu", type=str)
+        default="gpu:0", type=str)
     parser.add_argument(
         '--snapshot',dest='snapshot', help='Path of model snapshot.', 
         default='output/snapshots/L2CS-gaze360-_loader-180-4/_epoch_55.pkl', type=str)
@@ -42,7 +43,12 @@ def parse_args():
 
 if __name__ == '__main__':
     args = parse_args()
-
+    logging.basicConfig(level=logging.INFO)
+    logging.info('Called with args:')
+    logging.info(args)
+    
+     # Enable cudnn benchmark
+    
     cudnn.enabled = True
     arch=args.arch
     cam = args.cam_id
