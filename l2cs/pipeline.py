@@ -1,14 +1,13 @@
-import pathlib
-from typing import Union
-
 import cv2
+import logging
 import numpy as np
+import pathlib
 import torch
 import torch.nn as nn
-from face_detection import RetinaFace
-
-from .utils import prep_input_numpy, getArch
 from .results import GazeResultContainer
+from .utils import getArch, prep_input_numpy
+from batch_face.face_detection import RetinaFace
+from typing import Union
 
 
 class Pipeline:
@@ -56,54 +55,69 @@ class Pipeline:
 
         if self.include_detector:
             faces = self.detector(frame)
+            if faces == []:
+                return GazeResultContainer(
+                    pitch=np.empty((0, 1)),
+                    yaw=np.empty((0, 1)),
+                    bboxes=np.empty((0, 1)),
+                    landmarks=np.empty((0, 1)),
+                    scores=np.empty((0, 1)),
+                )
 
-            if faces is not None:
-                for box, landmark, score in faces:
+            pitch = np.empty((0, 1))
+            yaw = np.empty((0, 1))
+            for box, landmark, score in faces:
 
-                    # Apply threshold
-                    if score < self.confidence_threshold:
-                        continue
+                # Apply threshold
+                if score < self.confidence_threshold:
+                    continue
 
-                    # Extract safe min and max of x,y
-                    x_min = int(box[0])
-                    if x_min < 0:
-                        x_min = 0
-                    y_min = int(box[1])
-                    if y_min < 0:
-                        y_min = 0
-                    x_max = int(box[2])
-                    y_max = int(box[3])
+                # Extract safe min and max of x,y
+                x_min = int(box[0])
+                if x_min < 0:
+                    x_min = 0
+                y_min = int(box[1])
+                if y_min < 0:
+                    y_min = 0
+                x_max = int(box[2])
+                y_max = int(box[3])
 
-                    # Crop image
-                    img = frame[y_min:y_max, x_min:x_max]
-                    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                    img = cv2.resize(img, (224, 224))
-                    face_imgs.append(img)
+                # Crop image
+                img = frame[y_min:y_max, x_min:x_max]
+                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                img = cv2.resize(img, (224, 224))
+                face_imgs.append(img)
 
-                    # Save data
-                    bboxes.append(box)
-                    landmarks.append(landmark)
-                    scores.append(score)
+                # Save data
+                bboxes.append(box)
+                landmarks.append(landmark)
+                scores.append(score)
 
-                # Predict gaze
+            # Predict gaze
+            if face_imgs != []:
                 pitch, yaw = self.predict_gaze(np.stack(face_imgs))
-
-            else:
-
-                pitch = np.empty((0, 1))
-                yaw = np.empty((0, 1))
 
         else:
             pitch, yaw = self.predict_gaze(frame)
 
         # Save data
-        results = GazeResultContainer(
-            pitch=pitch,
-            yaw=yaw,
-            bboxes=np.stack(bboxes),
-            landmarks=np.stack(landmarks),
-            scores=np.stack(scores),
-        )
+        try:
+            results = GazeResultContainer(
+                pitch=pitch,
+                yaw=yaw,
+                bboxes=np.stack(bboxes),
+                landmarks=np.stack(landmarks),
+                scores=np.stack(scores),
+            )
+        except Exception:
+            logging.info("No faces detected")
+            results = GazeResultContainer(
+                pitch=np.empty((0, 1)),
+                yaw=np.empty((0, 1)),
+                bboxes=np.empty((0, 1)),
+                landmarks=np.empty((0, 1)),
+                scores=np.empty((0, 1)),
+            )
 
         return results
 
