@@ -1,64 +1,81 @@
 [project]
 name = "l2cs"
-version = "0.0.1"
+version = "0.0.2"
 description = "The official pytorch-cuda implementation of L2CS-Net for gaze estimation and tracking"
 authors = [{ name = "Ahmed Abderlrahman" }, { name = "Thorsten Hempel" }]
-license = { file = "LICENSE" }
-readme = "README.md"
 requires-python = ">=3.12,<3.15"
-
-keywords = ["gaze", "estimation", "eye-tracking", "deep-learning", "pytorch-cuda"]
-
-classifiers = ["Programming Language :: Python :: 3"]
-
-dependencies = [
-    'matplotlib>=3.3.4',
-    'numpy>=2,<2.3.0',
-    'opencv-python>=4.5.5',
-    'pandas>=1.1.5',
-    'Pillow>=8.4.0',
-    'scipy>=1.5.4',
-    'batch-face>=1.5.4',
+readme = "README.md"
+keywords = [
+    "gaze",
+    "estimation",
+    "eye-tracking",
+    "deep-learning",
+    "pytorch-cuda",
 ]
-
-# [tool.poetry.group.amd]
-# optional=true
-
-# [tool.poetry.group.amd.dependencies]
-# torch = { version = "^2.9", source = "pytorch-cuda-rocm", markers="extra!='nvidia' and extra=='amd'"  }
-# torchvision = { version = "^0.24", source = "pytorch-cuda-rocm", markers="extra!='nvidia' and extra=='amd'" }
-
-[tool.poetry.group.nvidia]
-optional=true
-
-[tool.poetry.group.nvidia.dependencies]
-# torch = { version = "^2.9.0", source = 'pytorch-cuda'}
-# torchvision = { version = "^0.24.0", source = 'pytorch-cuda'}
-
-[tool.poetry.extras]
-amd = ["group.amd"]
-nvidia = ["group.nvidia"]
+classifiers = ["Programming Language :: Python :: 3"]
+dependencies = [
+    "matplotlib>=3.3.4",
+    "numpy>=2,<2.3.0",
+    "opencv-python>=4.5.5",
+    "pandas>=1.1.5",
+    "Pillow>=8.4.0",
+    "scipy>=1.5.4",
+    "batch-face>=1.5.4",
+]
 
 [project.urls]
 homepath = "https://github.com/Ahmednull/L2CS-Net"
 repository = "https://github.com/Ahmednull/L2CS-Net"
 
+[dependency-groups]
+nvidia = ["torch>=2.9,<3", "torchvision>=0.24,<0.25"]
+dev = [
+    "pre-commit>=4.4.0,<5",
+    "flake8>=7.3.0,<8",
+    "isort>=7.0.0,<8",
+    "black>=25.9.0,<26",
+]
+
+amd = ["torch>=2.9,<3 ", "torchvision>=0.24,<0.25"]
+
+[tool.uv]
+default-groups = ["nvidia", "dev"]
+conflicts = [
+    [
+        { group = "nvidia", excludes = [
+            "amd",
+        ] },
+        { group = "amd", excludes = [
+            "nvidia",
+        ] },
+    ],
+]
+[[tool.uv.index]]
+name = "PyPI"
+url = "https://pypi.org/simple/"
+default = true
+
+[[tool.uv.index]]
+name = "pytorch-rocm"
+url = "https://download.pytorch.org/whl/rocm6.4"
+
+[[tool.uv.index]]
+name = "pytorch-cuda"
+url = "https://download.pytorch.org/whl/cu130/"
+
+[tool.uv.sources]
+torch = { index = "pytorch-cuda" }
+torchvision = { index = "pytorch-cuda" }
+
 [build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
-# https://setuptools.pypa.io/en/stable/userguide/datafiles.html
 [tool.setuptools]
 include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["."]
-
-[tool.poetry.group.dev.dependencies]
-pre-commit = "^4.4.0"
-flake8 = "^7.3.0"
-isort = "^7.0.0"
-black = "^25.9.0"
 
 [tool.black]
 line-length = 100
@@ -67,17 +84,3 @@ line-length = 100
 profile = "black"
 extend_skip = ["build", "dist", ".venv", ".tox", ".gitignore"]
 no_sections = 'true'
-
-[[tool.poetry.source]]
-name = "PyPI"
-priority = "primary"
-
-[[tool.poetry.source]]
-name = "pytorch-rocm"
-url = "https://download.pytorch.org/whl/rocm6.4"
-priority = "explicit"
-
-[[tool.poetry.source]]
-name = "pytorch-cuda"
-url = "https://download.pytorch.org/whl/cu113/"
-priority = "explicit"
