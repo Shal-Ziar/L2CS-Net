@@ -63,9 +63,9 @@ url = "https://download.pytorch.org/whl/rocm6.4"
 name = "pytorch-cuda"
 url = "https://download.pytorch.org/whl/cu130/"
 
-[tool.uv.sources]
-torch = { index = "pytorch-cuda" }
-torchvision = { index = "pytorch-cuda" }
+# [tool.uv.sources]
+# torch = { index = "pytorch-cuda" }
+# torchvision = { index = "pytorch-cuda" }
 
 [build-system]
 requires = ["setuptools", "wheel"]
