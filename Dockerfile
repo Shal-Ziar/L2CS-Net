@@ -1,9 +1,10 @@
 # Use NVIDIA CUDA base image with cuDNN for GPU support
 ARG BUILDPLATFORM=linux/amd64
-# FROM --platform=${BUILDPLATFORM} docker.io/nvidia/cuda@sha256:14d94b039cb94bbd5da559f303b46bc4b0d5d6c24ab1a9d7b186e566ed3400dc AS base
 FROM --platform=${BUILDPLATFORM} docker.io/python:3.13-slim-bullseye AS base
+ARG GROUP
+RUN echo "Building for platform: ${BUILDPLATFORM} with group: ${GROUP}"
 WORKDIR /app
-RUN --mount /home/$USER/
+RUN mkdir -p /.cache
 ENV UV_PROJECT_ENVIRONMENT=/usr/local/
 # RUN apt-get update && apt-get install -y \
 #     python3-uv
@@ -14,9 +15,8 @@ COPY pyproject.toml pyproject.toml
 COPY uv.lock uv.lock
 COPY l2cs/ ./l2cs/
 COPY demo.py train.py test.py leave_one_out_eval.py vector_output.py ./
-RUN uv sync --only-group nvidia
-RUN uv sync
-
+RUN --mount=type=cache,target=/root/.cache uv sync --no-dev
+RUN --mount=type=cache,target=/root/.cache uv sync --group ${GROUP}
 
 
 # Copy additional Python scripts (optional - uncomment if needed)

@@ -1,6 +1,6 @@
 [project]
 name = "l2cs"
-version = "0.0.2"
+version = "0.0.3"
 description = "The official pytorch-cuda implementation of L2CS-Net for gaze estimation and tracking"
 authors = [{ name = "Ahmed Abderlrahman" }, { name = "Thorsten Hempel" }]
 requires-python = ">=3.12,<3.15"
