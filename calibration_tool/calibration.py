@@ -38,13 +38,13 @@ class CalibrationPoint3D:
         self.y = y
         self.state = PointState.INACTIVE
         self.gaze_results: List[GazeResultContainer] = []
-        self.selection_time: Optional[float] = None  # Time when point was selected
+        self.selection_time: float = 0.0  # Time when point was selected
 
     def reset(self) -> None:
         """Reset point to inactive state."""
         self.state = PointState.INACTIVE
         self.gaze_results = []
-        self.selection_time = None
+        self.selection_time = 0.0
 
 
 class CalibrationInterface:
@@ -74,7 +74,7 @@ class CalibrationInterface:
 
         # Create display in fullscreen mode to get screen dimensions
         if fullscreen:
-            flags = pygame.FULLSCREEN | pygame.SCALED
+            flags = pygame.FULLSCREEN  # | pygame.SCALED
             self.screen = pygame.display.set_mode((0, 0), flags)
         else:
             # Windowed mode with default size
@@ -132,7 +132,7 @@ class CalibrationInterface:
         """Get the currently active calibration point."""
         return self.calibration_points[self.current_point_idx]
 
-    def _advance_to_next_point(self) -> bool:
+    def _advance_to_next_point(self):
         """
         Advance to the next calibration point.
 
@@ -142,8 +142,7 @@ class CalibrationInterface:
         self.current_point_idx += 1
         if self.current_point_idx >= len(self.calibration_points):
             self.calibration_complete = True
-            return False
-        return True
+            self.running = False
 
     def handle_spacebar_press(self) -> None:
         """Handle spacebar press to advance point state."""
@@ -166,11 +165,11 @@ class CalibrationInterface:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE:
-                    if not self.calibration_complete:
-                        self.handle_spacebar_press()
-                elif event.key == pygame.K_ESCAPE:
+                return
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE and not self.calibration_complete:
+                    self.handle_spacebar_press()
+                if event.key == pygame.K_ESCAPE:
                     self.handle_esc_press()
 
     def update(self) -> None:
@@ -496,25 +495,24 @@ class CalibrationSession:
                     break
 
             # Save calibration data if we have any
-            if not self.interface.running:
+            if not self.interface.calibration_complete:
                 # User pressed ESC - abort without saving
-                print("Calibration aborted.")
+                print("Calibration aborted or incomplete. No data saved.")
                 return None
 
-            if self.interface.calibration_complete:
-                output_path = self.interface.save_calibration()
+            output_path = self.interface.save_calibration()
 
-                # Generate visualizations
-                if output_path:
-                    try:
-                        from calibration_tool.visualize import visualize_calibration
+            # Generate visualizations
+            if output_path:
+                try:
+                    from calibration_tool.visualize import visualize_calibration
 
-                        visualize_calibration(output_path)
-                    except Exception as e:
-                        print(f"Warning: Failed to generate visualizations: {e}")
+                    visualize_calibration(output_path)
+                except Exception as e:
+                    print(f"Warning: Failed to generate visualizations: {e}")
 
-                print(f"Calibration completed and saved.")
-                return output_path
+            print("Calibration completed and saved.")
+            return output_path
 
         except KeyboardInterrupt:
             print("Calibration interrupted by user.")
@@ -526,3 +524,9 @@ class CalibrationSession:
         """Clean up all resources."""
         self.gaze_capture.cleanup()
         self.interface.cleanup()
+
+
+if __name__ == "__main__":
+    # Example usage
+    session = CalibrationSession(fullscreen=True)
+    session.run()
