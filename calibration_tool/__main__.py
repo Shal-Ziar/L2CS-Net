@@ -4,4 +4,5 @@ import sys
 
 if __name__ == "__main__":
     from calibration_tool.cli import main
+
     sys.exit(main())
