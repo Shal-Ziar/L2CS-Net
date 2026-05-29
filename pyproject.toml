@@ -37,17 +37,17 @@ dev = [
 ]
 
 amd = ["torch>=2.9,<3 ", "torchvision>=0.24,<0.25"]
+cal = [
+    "pydantic>=2.13.4",
+    "pygame>=2.6.1",
+]
 
 [tool.uv]
 default-groups = ["nvidia", "dev"]
 conflicts = [
     [
-        { group = "nvidia", excludes = [
-            "amd",
-        ] },
-        { group = "amd", excludes = [
-            "nvidia",
-        ] },
+        { group = "nvidia" },
+        { group = "amd"    },
     ],
 ]
 [[tool.uv.index]]
