@@ -73,7 +73,23 @@ Interactive calibration tool for L2CS gaze detection. Captures gaze data at 9 fi
 - **`calibration/types.py`** — Add `PointState` enum; verify `CalibrationPoint` and `GazeResultContainer`
 - **`calibration/visualize.py`** (new) — Post-calibration scatter plot and heatmap generation; JSONL parsing
 - **`calibration/cli.py`** (new) — Entry point with argument parsing
+- **`calibration/__main__.py`** (new) — Module entry point for `python -m calibration`
 - **`calibration/callibration_data/`** — Directory exists for JSONL and PNG output
+
+## Running from L2CS-Net Root
+
+Ensure you have the calibration dependencies installed:
+```bash
+.venv/bin/python -m uv sync --group cal
+```
+
+Then run the calibration tool:
+```bash
+.venv/bin/python -m calibration
+.venv/bin/python -m calibration --device cpu
+.venv/bin/python -m calibration --windowed
+.venv/bin/python -m calibration --camera 1
+```
 
 ## Verification Checklist
 
