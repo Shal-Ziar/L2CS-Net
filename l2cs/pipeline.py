@@ -16,7 +16,7 @@ class Pipeline:
         self,
         weights: pathlib.Path,
         arch: str,
-        device: str = "cpu",
+        device: torch.device,
         include_detector: bool = True,
         confidence_threshold: float = 0.5,
     ):

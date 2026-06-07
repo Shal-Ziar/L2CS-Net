@@ -68,7 +68,7 @@ def angular(gaze, label):
     )
 
 
-def select_device(device="", batch_size=None):
+def select_device(device: str = "", batch_size=None) -> torch.device:
     # device = 'cpu' or '0' or '0,1,2,3'
     s = f"YOLOv3 🚀 {git_describe()} torch {torch.__version__} "  # string
     cpu = device.lower() == "cpu"
