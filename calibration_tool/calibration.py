@@ -19,14 +19,19 @@ Interface: Full-screen, auto-scales based on screen size.
 """
 
 import cv2
-import json
 import numpy as np
 import pygame
 import time
-from calibration_tool.types import CalibrationPoint, GazeResultContainer, PointState
+from calibration_tool.types import (
+    Calibration,
+    CalibrationPoint,
+    GazeResultContainer,
+    PointState,
+)
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+from typing_extensions import Literal
 
 
 class CalibrationPoint3D:
@@ -105,8 +110,9 @@ class CalibrationInterface:
         self.clock = pygame.time.Clock()
         self.fps = 30
 
-    def _create_grid_points(self) -> List[CalibrationPoint3D]:
+    def _create_grid_points(self, count: Literal[2, 4, 9, 25] = 2) -> List[CalibrationPoint3D]:
         """Create 9 calibration points in a 3x3 grid with margins."""
+        sqrt_count = int(count**0.5)
         margin_x = int(self.screen_width * 0.1)
         margin_y = int(self.screen_height * 0.1)
 
@@ -119,8 +125,8 @@ class CalibrationInterface:
 
         points = []
         point_id = 1
-        for row in range(3):
-            for col in range(3):
+        for row in range(sqrt_count):
+            for col in range(sqrt_count):
                 x = margin_x + col * step_x
                 y = margin_y + row * step_y
                 points.append(CalibrationPoint3D(point_id, x, y))
@@ -324,34 +330,33 @@ class CalibrationInterface:
             timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
             output_path = data_dir / f"calibration_{timestamp}.jsonl"
 
-        # Create metadata header
-        metadata = {
-            "timestamp": datetime.now().isoformat(),
-            "screen_width": self.screen_width,
-            "screen_height": self.screen_height,
-            "type": "calibration_metadata",
-        }
-
-        # Write JSONL file
-        with open(output_path, "w") as f:
-            # Write metadata header
-            f.write(json.dumps(metadata) + "\n")
-
             # Write calibration points
+            calibration_points = []
             for pt in self.calibration_points:
                 if pt.gaze_results:  # Only write points with data
+                    GazeResults = [
+                        GazeResultContainer(
+                            pitch=r.pitch,
+                            yaw=r.yaw,
+                            bboxes=r.bboxes,
+                            landmarks=r.landmarks,
+                            scores=r.scores,
+                        )
+                        for r in pt.gaze_results
+                    ]
                     cal_point = CalibrationPoint(
-                        calibration_point=pt.point_id, GazeResults=pt.gaze_results
+                        calibration_point=pt.point_id, GazeResults=GazeResults
                     )
-                    # Custom serialization to handle numpy arrays
-                    cal_dict = cal_point.model_dump()
-                    # Convert numpy arrays to lists for JSON serialization
-                    for gaze_result in cal_dict["GazeResults"]:
-                        for key in ["pitch", "yaw", "bboxes", "landmarks", "scores"]:
-                            if isinstance(gaze_result[key], np.ndarray):
-                                gaze_result[key] = gaze_result[key].tolist()
+                    calibration_points.append(cal_point)
 
-                    f.write(json.dumps(cal_dict) + "\n")
+            calibration = Calibration(
+                timestamp=datetime.now().isoformat(),
+                screen_height=self.screen_height,
+                screen_width=self.screen_width,
+                calibration_points=calibration_points,
+            )
+            with open(output_path, "a") as f:
+                f.write(calibration.model_dump_json(indent=3))
 
         print(f"Calibration data saved to {output_path}")
         return output_path
@@ -480,7 +485,7 @@ class CalibrationSession:
         try:
             while self.interface.running:
                 # Capture gaze frame
-                success, frame, gaze_result = self.gaze_capture.capture_frame()
+                success, _, gaze_result = self.gaze_capture.capture_frame()
 
                 if not success:
                     print("Warning: Failed to capture frame")

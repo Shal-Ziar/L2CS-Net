@@ -1,9 +1,8 @@
-import math
 from enum import Enum
 from typing import List
 import numpy as np
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_serializer
 
 
 class PointState(str, Enum):
@@ -13,19 +12,6 @@ class PointState(str, Enum):
     SELECTED = "selected"  # Green - selected, ready to record
     RECORDING = "recording"  # Blue - currently recording gaze data
     COMPLETED = "completed"  # Grey - recording done
-
-
-class GazeSituationSettings(BaseModel):
-    """
-    Configuration that defines the setup. Ie distance from head to camera, screen size and curvature.
-    """
-
-    ScreenWidth: int = Field(..., description="The width of the screen in pixels")
-    ScreenHeight: int = Field(..., description="The Height of the screen in pixels")
-    DistanceToScreen: int = Field(..., description="Euclidian distance to camera from nose-bridge")
-    ScreenCurvature: float = Field(
-        default=math.inf, description="Screen curvature in mm, default inf for flatscreens"
-    )
 
 
 class GazeResultContainer(BaseModel):
@@ -47,6 +33,10 @@ class GazeResultContainer(BaseModel):
     )
     scores: np.ndarray = Field(..., description="The confidence scores of the detected faces")
 
+    @field_serializer("pitch", "yaw", "bboxes", "landmarks", "scores")
+    def serialize_arrays(self, v):
+        return v.tolist()
+
 
 class CalibrationPoint(BaseModel):
     calibration_point: int = Field(
@@ -56,3 +46,11 @@ class CalibrationPoint(BaseModel):
         ...,
         description="The gaze results for this calibration point, stored as a list of GazeResultContainer objects, one for each time the spacebar was pressed at this calibration point",
     )
+
+
+class Calibration(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    timestamp: str = Field(..., description="Iso timestring of calibration time")
+    screen_width: int = Field(..., description="Screen width in pixels")
+    screen_height: int = Field(..., description="Screen height in pixels")
+    calibration_points: List[CalibrationPoint] = []
