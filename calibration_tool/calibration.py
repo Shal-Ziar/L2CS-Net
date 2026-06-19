@@ -110,7 +110,7 @@ class CalibrationInterface:
         self.clock = pygame.time.Clock()
         self.fps = 30
 
-    def _create_grid_points(self, count: Literal[2, 4, 9, 25] = 2) -> List[CalibrationPoint3D]:
+    def _create_grid_points(self, count: Literal[2, 4, 9, 25] = 9) -> List[CalibrationPoint3D]:
         """Create 9 calibration points in a 3x3 grid with margins."""
         sqrt_count = int(count**0.5)
         margin_x = int(self.screen_width * 0.1)
@@ -325,7 +325,7 @@ class CalibrationInterface:
 
         # Create default output path if not provided
         if output_path is None:
-            data_dir = Path(__file__).parent / "callibration_data"
+            data_dir = Path(__file__).parent / "calibration_data"
             data_dir.mkdir(exist_ok=True)
             timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
             output_path = data_dir / f"calibration_{timestamp}.jsonl"
@@ -345,7 +345,9 @@ class CalibrationInterface:
                         for r in pt.gaze_results
                     ]
                     cal_point = CalibrationPoint(
-                        calibration_point=pt.point_id, GazeResults=GazeResults
+                        calibration_point=pt.point_id,
+                        GazeResults=GazeResults,
+                        pixel_coordinates=[pt.x, pt.y],
                     )
                     calibration_points.append(cal_point)
 

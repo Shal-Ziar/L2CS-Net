@@ -2,7 +2,7 @@ from enum import Enum
 from typing import List
 import numpy as np
 
-from pydantic import BaseModel, Field, ConfigDict, field_serializer
+from pydantic import BaseModel, Field, ConfigDict, field_serializer, field_validator
 
 
 class PointState(str, Enum):
@@ -33,6 +33,14 @@ class GazeResultContainer(BaseModel):
     )
     scores: np.ndarray = Field(..., description="The confidence scores of the detected faces")
 
+    @field_validator("pitch", "yaw", "bboxes", "landmarks", "scores", mode="before")
+    @classmethod
+    def convert_to_array(cls, v):
+        """Convert lists to numpy arrays during deserialization from JSON."""
+        if isinstance(v, list):
+            return np.array(v)
+        return v
+
     @field_serializer("pitch", "yaw", "bboxes", "landmarks", "scores")
     def serialize_arrays(self, v):
         return v.tolist()
@@ -45,6 +53,10 @@ class CalibrationPoint(BaseModel):
     GazeResults: List[GazeResultContainer] = Field(
         ...,
         description="The gaze results for this calibration point, stored as a list of GazeResultContainer objects, one for each time the spacebar was pressed at this calibration point",
+    )
+    pixel_coordinates: List[int] = Field(
+        ...,
+        description="The pixel coordinates of the calibration point on the screen, stored as a list of [x, y] pairs, one for each time the spacebar was pressed at this calibration point",
     )
 
 
