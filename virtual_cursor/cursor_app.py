@@ -9,6 +9,7 @@ from l2cs import Pipeline
 from pathlib import Path
 from virtual_cursor.calibration_loader import CalibrationLoader
 from virtual_cursor.gaze_to_pixel import GazeToPixel
+from virtual_cursor.smoother import GazeSmoother
 
 
 class CursorApp:
@@ -24,6 +25,7 @@ class CursorApp:
         history_size: int = 10,
         arch: str = "ResNet50",
         fit_type: str = "univariate",
+        smoother: GazeSmoother | None = None,
     ):
         """Initialize cursor application.
 
@@ -36,6 +38,8 @@ class CursorApp:
             history_size: Number of gaze samples to track for variance calculation
             arch: Model architecture (e.g., 'ResNet50')
             fit_type: "univariate" or "bivariate" calibration fit
+            smoother: Optional pixel-space smoother applied after polynomial mapping.
+                If None, the raw polynomial output is used without smoothing.
         """
         # Load calibration
         print(f"Loading calibration from {calibration_path}...")
@@ -65,7 +69,9 @@ class CursorApp:
         print("Loading gaze model...")
         if model_path is None:
             # Use default model
-            model_path = Path(__file__).parent.parent / "models" / "L2CSNet_gaze360.pkl"
+            model_path = (
+                Path(__file__).parent.parent / "models" / "l2cs_gaze360_resnet50.safetensors"
+            )
             if not model_path.exists():
                 raise FileNotFoundError(
                     f"Default model not found at {model_path}. "
@@ -97,6 +103,7 @@ class CursorApp:
         self.last_cursor_pos: tuple[int, int] = (screen_w // 2, screen_h // 2)
         self.last_valid_pos: tuple[int, int] = (screen_w // 2, screen_h // 2)
         self.cursor_visible = True
+        self.smoother = smoother
 
     def _parse_device(self, device_str: str) -> torch.device:
         """Parse device string to torch device.
@@ -164,6 +171,11 @@ class CursorApp:
 
         # Map to pixel coordinates
         cursor_pos = self.gaze_to_pixel.gaze_to_pixel(pitch, yaw)
+
+        # Apply optional smoother
+        if self.smoother is not None:
+            cursor_pos = self.smoother.update(*cursor_pos)
+
         self.last_cursor_pos = cursor_pos
         self.last_valid_pos = cursor_pos
 

@@ -58,7 +58,7 @@ if __name__ == "__main__":
     # snapshot_path = args.snapshot
 
     gaze_pipeline = Pipeline(
-        weights=CWD / "models" / "L2CSNet_gaze360.pkl",
+        weights=CWD / "models" / "l2cs_gaze360_resnet50.safetensors",
         arch="ResNet50",
         device=select_device(args.device, batch_size=1),
     )

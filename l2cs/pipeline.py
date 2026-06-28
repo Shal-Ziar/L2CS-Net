@@ -4,6 +4,7 @@ import numpy as np
 import pathlib
 import torch
 import torch.nn as nn
+from safetensors.torch import load_file
 from .results import GazeResultContainer
 from .utils import getArch, prep_input_numpy
 from batch_face.face_detection import RetinaFace
@@ -29,7 +30,12 @@ class Pipeline:
 
         # Create L2CS model
         self.model = getArch(arch, 90)
-        self.model.load_state_dict(torch.load(self.weights, map_location=device))
+        if weights.suffix == ".safetensors":
+            self.model.load_state_dict(
+                load_file(self.weights, device="cuda" if device.type == "cuda" else "cpu")
+            )
+        else:
+            self.model.load_state_dict(torch.load(self.weights, map_location=device))
         self.model.to(self.device)
         self.model.eval()
 

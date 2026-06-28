@@ -3,6 +3,7 @@
 import argparse
 from pathlib import Path
 from virtual_cursor.cursor_app import CursorApp
+from virtual_cursor.smoother import MovingAverageSmoother
 from virtual_cursor.trial_waypoint import WaypointTrial
 
 
@@ -58,6 +59,12 @@ def main() -> None:
         choices=["univariate", "bivariate"],
         help="Calibration fit type: univariate (independent pitch→x, yaw→y) or bivariate (with pitch×yaw cross-terms)",
     )
+    parser.add_argument(
+        "--averaging-window",
+        type=int,
+        default=20,
+        help="Number of frames to average cursor position over (1 = no smoothing, default: 1)",
+    )
 
     args = parser.parse_args()
 
@@ -69,6 +76,9 @@ def main() -> None:
 
     # Initialize cursor app
     try:
+        smoother = (
+            MovingAverageSmoother(args.averaging_window) if args.averaging_window > 1 else None
+        )
         app = CursorApp(
             calibration_path=calib_path,
             model_path=args.model,
@@ -76,6 +86,7 @@ def main() -> None:
             camera_id=args.cam,
             fullscreen=args.fullscreen,
             fit_type=args.fit_type,
+            smoother=smoother,
         )
     except Exception as e:
         print(f"Error initializing app: {e}")

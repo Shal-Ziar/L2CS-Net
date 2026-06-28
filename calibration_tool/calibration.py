@@ -83,8 +83,8 @@ class CalibrationInterface:
             self.screen = pygame.display.set_mode((0, 0), flags)
         else:
             # Windowed mode with default size
-            self.screen_width = 1280
-            self.screen_height = 720
+            self.screen_width = 1920
+            self.screen_height = 1080
             flags = 0
             self.screen = pygame.display.set_mode((self.screen_width, self.screen_height), flags)
 
@@ -535,5 +535,5 @@ class CalibrationSession:
 
 if __name__ == "__main__":
     # Example usage
-    session = CalibrationSession(fullscreen=True)
+    session = CalibrationSession(fullscreen=False)
     session.run()
