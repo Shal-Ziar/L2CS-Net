@@ -44,6 +44,13 @@ Examples:
     parser.add_argument(
         "--windowed", action="store_true", help="Use windowed mode instead of fullscreen"
     )
+    parser.add_argument(
+        "--grid-size",
+        type=int,
+        default=9,
+        choices=[9, 25],
+        help="Calibration grid size: 9 (3×3) or 25 (5×5) points (default: 9)",
+    )
 
     args = parser.parse_args()
 
@@ -66,6 +73,7 @@ Examples:
             device=args.device,
             camera_id=args.camera,
             fullscreen=not args.windowed,
+            grid_size=args.grid_size,
         )
 
         output_path = session.run()

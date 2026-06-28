@@ -26,6 +26,7 @@ class CursorApp:
         arch: str = "ResNet50",
         fit_type: str = "univariate",
         smoother: GazeSmoother | None = None,
+        ridge_alpha: float = 1.0,
     ):
         """Initialize cursor application.
 
@@ -40,10 +41,13 @@ class CursorApp:
             fit_type: "univariate" or "bivariate" calibration fit
             smoother: Optional pixel-space smoother applied after polynomial mapping.
                 If None, the raw polynomial output is used without smoothing.
+            ridge_alpha: Ridge regularization strength for bivariate fit (ignored for univariate).
         """
         # Load calibration
         print(f"Loading calibration from {calibration_path}...")
-        self.calib_loader = CalibrationLoader(calibration_path, fit_type=fit_type)
+        self.calib_loader = CalibrationLoader(
+            calibration_path, fit_type=fit_type, ridge_alpha=ridge_alpha
+        )
         screen_w, screen_h = self.calib_loader.get_screen_dims()
 
         print(f"Screen: {screen_w}×{screen_h}")

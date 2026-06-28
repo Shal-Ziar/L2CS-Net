@@ -65,7 +65,12 @@ def main() -> None:
         default=20,
         help="Number of frames to average cursor position over (1 = no smoothing, default: 1)",
     )
-
+    parser.add_argument(
+        "--ridge-alpha",
+        type=float,
+        default=1.0,
+        help="Ridge regularization strength for bivariate polynomial fit (default: 1.0, ignored for univariate)",
+    )
     args = parser.parse_args()
 
     # Validate calibration file
@@ -87,6 +92,7 @@ def main() -> None:
             fullscreen=args.fullscreen,
             fit_type=args.fit_type,
             smoother=smoother,
+            ridge_alpha=args.ridge_alpha,
         )
     except Exception as e:
         print(f"Error initializing app: {e}")

@@ -2,6 +2,7 @@
 
 import numpy as np
 from calibration_tool.calculate_calibration import (
+    calculate_gaze_bounds,
     calculate_polynomial_mapping_bivariate,
     calculate_polynomial_mapping_univariate,
     load_calibration_data,
@@ -12,12 +13,15 @@ from pathlib import Path
 class CalibrationLoader:
     """Load JSONL calibration file and extract screen dimensions + polynomials."""
 
-    def __init__(self, calibration_path: Path | str, fit_type: str = "univariate"):
+    def __init__(
+        self, calibration_path: Path | str, fit_type: str = "univariate", ridge_alpha: float = 1.0
+    ):
         """Load calibration from file.
 
         Args:
             calibration_path: Path to calibration JSONL file
             fit_type: "univariate" (independent pitch→x, yaw→y) or "bivariate" (with cross-terms)
+            ridge_alpha: Ridge regularization strength for bivariate fit (ignored for univariate)
 
         Raises:
             FileNotFoundError: If calibration file not found
@@ -51,7 +55,7 @@ class CalibrationLoader:
                 self.coeffs_y = None
             else:  # bivariate
                 self.coeffs_x, self.coeffs_y = calculate_polynomial_mapping_bivariate(
-                    self.calibration
+                    self.calibration, alpha=ridge_alpha
                 )
                 self.poly_pitch_to_x = None
                 self.poly_yaw_to_y = None
@@ -81,3 +85,11 @@ class CalibrationLoader:
             (coeffs_x, coeffs_y) tuple
         """
         return (self.coeffs_x, self.coeffs_y)
+
+    def get_gaze_bounds(self) -> tuple[float, float, float, float]:
+        """Get pitch/yaw bounds of the calibration data.
+
+        Returns:
+            (pitch_min, pitch_max, yaw_min, yaw_max)
+        """
+        return calculate_gaze_bounds(self.calibration)

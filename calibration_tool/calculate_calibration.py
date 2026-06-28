@@ -15,8 +15,19 @@ def load_calibration_data(file_path: Path = DEFAULT_PATH) -> Calibration:
     return calibration_data
 
 
+def _iqr_filter(values: np.ndarray) -> np.ndarray:
+    """Return values within [Q1 - 1.5*IQR, Q3 + 1.5*IQR]. Falls back to all if all filtered."""
+    q1, q3 = np.percentile(values, [25, 75])
+    iqr = q3 - q1
+    mask = (values >= q1 - 1.5 * iqr) & (values <= q3 + 1.5 * iqr)
+    filtered = values[mask]
+    return filtered if len(filtered) > 0 else values
+
+
 def _extract_calibration_data(calibration: Calibration) -> tuple:
     """Extract and average gaze readings per calibration point.
+
+    Applies IQR filtering per point before averaging to reject blinks/saccades.
 
     Returns:
         (pitch_avg, yaw_avg, pixel_x, pixel_y, raw_pitch, raw_yaw, raw_pixel_x, raw_pixel_y)
@@ -44,8 +55,8 @@ def _extract_calibration_data(calibration: Calibration) -> tuple:
             ]
         )
 
-        pitch_avg.append(float(np.mean(pitch_values)))
-        yaw_avg.append(float(np.mean(yaw_values)))
+        pitch_avg.append(float(np.mean(_iqr_filter(pitch_values))))
+        yaw_avg.append(float(np.mean(_iqr_filter(yaw_values))))
         pixel_x.append(float(point.pixel_coordinates[0]))
         pixel_y.append(float(point.pixel_coordinates[1]))
 
@@ -67,6 +78,12 @@ def _extract_calibration_data(calibration: Calibration) -> tuple:
     )
 
 
+def calculate_gaze_bounds(calibration: Calibration) -> tuple[float, float, float, float]:
+    """Return (pitch_min, pitch_max, yaw_min, yaw_max) from IQR-filtered calibration averages."""
+    pitch, yaw, _, _, _, _, _, _ = _extract_calibration_data(calibration)
+    return float(pitch.min()), float(pitch.max()), float(yaw.min()), float(yaw.max())
+
+
 def calculate_polynomial_mapping_univariate(calibration: Calibration) -> npt.NDArray[np.float64]:
     """Univariate: pitch→x, yaw→y independently."""
     pitch, yaw, pixel_x, pixel_y, _, _, _, _ = _extract_calibration_data(calibration)
@@ -75,8 +92,16 @@ def calculate_polynomial_mapping_univariate(calibration: Calibration) -> npt.NDA
     return np.array([polyfit_pitch_to_x, polyfit_yaw_to_y])
 
 
-def calculate_polynomial_mapping_bivariate(calibration: Calibration) -> tuple:
+def calculate_polynomial_mapping_bivariate(calibration: Calibration, alpha: float = 1.0) -> tuple:
     """Bivariate with cross-terms: (pitch, yaw) → (pixel_x, pixel_y).
+
+    Uses Ridge regression (L2 penalty) to regularize the 10-feature design matrix,
+    which is nearly rank-deficient with a typical 9-point calibration grid.
+
+    Args:
+        calibration: Calibration data
+        alpha: Ridge regularization strength. Higher = smoother polynomial, less
+            prone to extrapolation divergence. 0 reduces to unregularized least squares.
 
     Returns (coeffs_x, coeffs_y) shape (10,) for degree-3 2D polynomial.
     """
@@ -98,8 +123,10 @@ def calculate_polynomial_mapping_bivariate(calibration: Calibration) -> tuple:
         ]
     )
 
-    coeffs_x = np.linalg.lstsq(A, pixel_x, rcond=None)[0]
-    coeffs_y = np.linalg.lstsq(A, pixel_y, rcond=None)[0]
+    # Ridge: w = (AᵀA + alpha·I)⁻¹ Aᵀy
+    ridge_matrix = A.T @ A + alpha * np.eye(A.shape[1])
+    coeffs_x = np.linalg.solve(ridge_matrix, A.T @ pixel_x)
+    coeffs_y = np.linalg.solve(ridge_matrix, A.T @ pixel_y)
     return coeffs_x, coeffs_y
 
 

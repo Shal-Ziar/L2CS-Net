@@ -63,17 +63,18 @@ class CalibrationInterface:
     COLOR_GREY = (128, 128, 128)
     COLOR_BLACK = (0, 0, 0)
 
-    POINT_RADIUS = 30  # Radius of calibration point circle
+    POINT_RADIUS = 20  # Radius of calibration point circle
     POINT_NUMBER_FONT_SIZE = 24
     CROSSHAIR_SIZE = 15  # Size of crosshair arms
     RECORDING_DURATION = 2.0  # Seconds to record per point
 
-    def __init__(self, fullscreen: bool = True):
+    def __init__(self, fullscreen: bool = True, grid_size: int = 9):
         """
         Initialize the calibration interface.
 
         Args:
             fullscreen: If True, use fullscreen mode; else use windowed mode
+            grid_size: Number of calibration points (4, 9, or 25)
         """
         pygame.init()
 
@@ -99,7 +100,7 @@ class CalibrationInterface:
         self.font_info = pygame.font.Font(None, 24)
 
         # Create calibration points in 3x3 grid
-        self.calibration_points = self._create_grid_points()
+        self.calibration_points = self._create_grid_points(count=grid_size)
         self.current_point_idx = 0  # Index into ordered point list
         self.calibration_data: Dict[int, CalibrationPoint3D] = {
             pt.point_id: pt for pt in self.calibration_points
@@ -111,17 +112,17 @@ class CalibrationInterface:
         self.fps = 30
 
     def _create_grid_points(self, count: Literal[2, 4, 9, 25] = 9) -> List[CalibrationPoint3D]:
-        """Create 9 calibration points in a 3x3 grid with margins."""
+        """Create calibration points in a sqrt(count) x sqrt(count) grid with margins."""
         sqrt_count = int(count**0.5)
-        margin_x = int(self.screen_width * 0.1)
-        margin_y = int(self.screen_height * 0.1)
+        margin_x = int(self.screen_width * 0.05)
+        margin_y = int(self.screen_height * 0.05)
 
         usable_width = self.screen_width - 2 * margin_x
         usable_height = self.screen_height - 2 * margin_y
 
-        # Spacing for 3x3 grid
-        step_x = usable_width // 2
-        step_y = usable_height // 2
+        # Step size generalises for any grid dimension
+        step_x = usable_width // (sqrt_count - 1) if sqrt_count > 1 else usable_width
+        step_y = usable_height // (sqrt_count - 1) if sqrt_count > 1 else usable_height
 
         points = []
         point_id = 1
@@ -462,6 +463,7 @@ class CalibrationSession:
         device: str = "gpu:0",
         camera_id: int = 0,
         fullscreen: bool = True,
+        grid_size: int = 9,
     ):
         """
         Initialize a calibration session.
@@ -471,8 +473,9 @@ class CalibrationSession:
             device: Device for inference
             camera_id: Webcam device ID
             fullscreen: Use fullscreen display
+            grid_size: Number of calibration points (4, 9, or 25)
         """
-        self.interface = CalibrationInterface(fullscreen=fullscreen)
+        self.interface = CalibrationInterface(fullscreen=fullscreen, grid_size=grid_size)
         self.gaze_capture = GazeCapture(model_path=model_path, device=device, camera_id=camera_id)
 
     def run(self) -> Optional[Path]:

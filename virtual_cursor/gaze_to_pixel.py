@@ -22,6 +22,8 @@ class GazeToPixel:
         coeffs_x: np.ndarray | None = None,
         coeffs_y: np.ndarray | None = None,
         fit_type: str = "univariate",
+        pitch_bounds: tuple[float, float] | None = None,
+        yaw_bounds: tuple[float, float] | None = None,
     ):
         """Initialize gaze-to-pixel mapper.
 
@@ -33,6 +35,9 @@ class GazeToPixel:
             coeffs_x: Bivariate coefficients for pixel_x (required if fit_type='bivariate')
             coeffs_y: Bivariate coefficients for pixel_y (required if fit_type='bivariate')
             fit_type: "univariate" or "bivariate"
+            pitch_bounds: (min, max) pitch range from calibration. Input is clamped to this range
+                before polynomial evaluation to prevent extrapolation divergence.
+            yaw_bounds: (min, max) yaw range from calibration. Same purpose as pitch_bounds.
         """
         if fit_type not in ("univariate", "bivariate"):
             raise ValueError(f"Invalid fit_type: {fit_type}. Use 'univariate' or 'bivariate'.")
@@ -40,6 +45,8 @@ class GazeToPixel:
         self.fit_type = fit_type
         self.screen_width = screen_width
         self.screen_height = screen_height
+        self.pitch_bounds = pitch_bounds
+        self.yaw_bounds = yaw_bounds
 
         if fit_type == "univariate":
             if poly_pitch_to_x is None or poly_yaw_to_y is None:
@@ -93,6 +100,12 @@ class GazeToPixel:
         Returns:
             (pixel_x, pixel_y) tuple, clamped to screen bounds
         """
+        # Clamp input to calibrated gaze range to prevent polynomial extrapolation divergence
+        if self.pitch_bounds is not None:
+            pitch = float(np.clip(pitch, *self.pitch_bounds))
+        if self.yaw_bounds is not None:
+            yaw = float(np.clip(yaw, *self.yaw_bounds))
+
         # Evaluate based on fit type
         if self.fit_type == "univariate":
             pixel_x = float(np.polyval(self.poly_pitch_to_x, pitch))
