@@ -3,8 +3,12 @@
 import cv2
 import numpy as np
 import pygame
+import time
 import torch
+import uuid
+from calibration_tool.types import Calibration, CalibrationPoint, GazeResultContainer
 from collections import deque
+from datetime import datetime
 from l2cs import Pipeline
 from pathlib import Path
 from virtual_cursor.calibration_loader import CalibrationLoader
@@ -108,6 +112,13 @@ class CursorApp:
         self.last_valid_pos: tuple[int, int] = (screen_w // 2, screen_h // 2)
         self.cursor_visible = True
         self.smoother = smoother
+
+        # Micro-calibration state
+        self.calibration_path = calibration_path
+        self.fit_type = fit_type
+        self.ridge_alpha = ridge_alpha
+        self.micro_calib_collecting = False
+        self.micro_calib_points: list = []
 
     def _parse_device(self, device_str: str) -> torch.device:
         """Parse device string to torch device.
@@ -244,9 +255,164 @@ class CursorApp:
         # Update display
         pygame.display.flip()
 
+    def trigger_micro_calibration(self) -> None:
+        """Collect 5-point micro-calibration and update polynomials."""
+        print("\n" + "=" * 60)
+        print("MICRO-CALIBRATION: Collecting 5 points (1.5s each)")
+        print("Look at each highlighted point on screen.")
+        print("=" * 60 + "\n")
+
+        self.micro_calib_collecting = True
+        self.micro_calib_points = []
+
+        # 5 points: center, corners
+        screen_w, screen_h = self.calib_loader.get_screen_dims()
+        points_5 = [
+            (screen_w // 2, screen_h // 2),  # center
+            (int(screen_w * 0.1), int(screen_h * 0.1)),  # top-left
+            (int(screen_w * 0.9), int(screen_h * 0.1)),  # top-right
+            (int(screen_w * 0.1), int(screen_h * 0.9)),  # bottom-left
+            (int(screen_w * 0.9), int(screen_h * 0.9)),  # bottom-right
+        ]
+
+        # Collect 1.5s per point
+        for point_idx, (target_x, target_y) in enumerate(points_5, 1):
+            point_start = time.time()
+            point_samples = []
+
+            print(f"Point {point_idx}/5 at ({target_x}, {target_y})...")
+
+            while (time.time() - point_start) < 1.5:
+                # Capture frame
+                ret, frame = self.cap.read()
+                if not ret:
+                    continue
+
+                try:
+                    results = self.pipeline.step(frame)
+                except Exception:
+                    continue
+
+                if results.pitch is None or len(results.pitch) == 0:
+                    continue
+
+                pitch = float(results.pitch[0])
+                yaw = float(results.yaw[0])
+                bboxes = results.bboxes
+                landmarks = results.landmarks
+                scores = results.scores
+
+                # Create gaze result
+                gaze_result = GazeResultContainer(
+                    pitch=np.array([pitch]),
+                    yaw=np.array([yaw]),
+                    bboxes=bboxes,
+                    landmarks=landmarks,
+                    scores=scores,
+                )
+                point_samples.append(gaze_result)
+
+                # Render collection UI
+                self._render_calibration_point(target_x, target_y)
+                self.clock.tick(30)
+
+            if point_samples:
+                self.micro_calib_points.append((point_idx, target_x, target_y, point_samples))
+                print(f"  ✓ Collected {len(point_samples)} samples")
+            else:
+                print("  ✗ No gaze detected")
+
+        self.micro_calib_collecting = False
+
+        # Append to calibration file
+        self._append_micro_calibration()
+        print("Micro-calibration complete. Reloading...\n")
+
+        # Reload calibration and update polynomials
+        self._reload_calibration()
+
+    def _render_calibration_point(self, x: int, y: int) -> None:
+        """Render calibration collection UI."""
+        self.screen.fill((20, 20, 20))
+
+        # Draw large circle at target point
+        pygame.draw.circle(self.screen, (0, 255, 0), (x, y), 40, 3)
+        pygame.draw.circle(self.screen, (0, 255, 0), (x, y), 20)
+
+        # Crosshair
+        pygame.draw.line(self.screen, (200, 200, 200), (x - 50, y), (x + 50, y), 1)
+        pygame.draw.line(self.screen, (200, 200, 200), (x, y - 50), (x, y + 50), 1)
+
+        # Info text
+        font = pygame.font.Font(None, 24)
+        text = font.render("Collecting calibration data...", True, (200, 200, 200))
+        self.screen.blit(text, (10, 10))
+
+        pygame.display.flip()
+
+    def _append_micro_calibration(self) -> None:
+        """Append micro-calibration data to calibration file."""
+        try:
+            # Load existing calibration
+            with open(self.calibration_path, "r") as f:
+                existing = Calibration.model_validate_json(f.read())
+
+            session_id = existing.session_id or str(uuid.uuid4())
+
+            # Create new points
+            for point_id, x, y, gaze_results in self.micro_calib_points:
+                cal_point = CalibrationPoint(
+                    calibration_point=point_id,
+                    GazeResults=gaze_results,
+                    pixel_coordinates=[x, y],
+                    session_type="micro",
+                )
+                existing.calibration_points.append(cal_point)
+
+            existing.session_id = session_id
+            existing.timestamp = datetime.now().isoformat()
+
+            # Write back
+            with open(self.calibration_path, "w") as f:
+                f.write(existing.model_dump_json(indent=3))
+
+            print(f"✓ Appended to {self.calibration_path}")
+        except Exception as e:
+            print(f"Error appending calibration: {e}")
+
+    def _reload_calibration(self) -> None:
+        """Reload calibration and update polynomials."""
+        try:
+            self.calib_loader = CalibrationLoader(
+                self.calibration_path,
+                fit_type=self.fit_type,
+                ridge_alpha=self.ridge_alpha,
+            )
+
+            screen_w, screen_h = self.calib_loader.get_screen_dims()
+
+            if self.fit_type == "univariate":
+                poly_pitch_to_x, poly_yaw_to_y = self.calib_loader.get_polynomials()
+                self.gaze_to_pixel = GazeToPixel(
+                    screen_w,
+                    screen_h,
+                    poly_pitch_to_x=poly_pitch_to_x,
+                    poly_yaw_to_y=poly_yaw_to_y,
+                    fit_type=self.fit_type,
+                )
+            else:  # bivariate
+                coeffs_x, coeffs_y = self.calib_loader.get_bivariate_coeffs()
+                self.gaze_to_pixel = GazeToPixel(
+                    screen_w, screen_h, coeffs_x=coeffs_x, coeffs_y=coeffs_y, fit_type=self.fit_type
+                )
+
+            print("✓ Calibration reloaded and polynomials updated")
+        except Exception as e:
+            print(f"Error reloading calibration: {e}")
+
     def run(self) -> None:
         """Main event loop."""
-        print("Starting virtual cursor. Press ESC to exit.")
+        print("Starting virtual cursor. Press ESC to exit, 'c' to recalibrate.")
 
         try:
             while True:
@@ -257,6 +423,8 @@ class CursorApp:
                     if event.type == pygame.KEYDOWN:
                         if event.key == pygame.K_ESCAPE:
                             return
+                        if event.key == pygame.K_c and not self.micro_calib_collecting:
+                            self.trigger_micro_calibration()
 
                 # Process frame
                 success, cursor_pos, valid = self.process_frame()

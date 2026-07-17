@@ -1,8 +1,7 @@
-from enum import Enum
-from typing import List
 import numpy as np
-
-from pydantic import BaseModel, Field, ConfigDict, field_serializer, field_validator
+from enum import Enum
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
+from typing import List
 
 
 class PointState(str, Enum):
@@ -58,6 +57,10 @@ class CalibrationPoint(BaseModel):
         ...,
         description="The pixel coordinates of the calibration point on the screen, stored as a list of [x, y] pairs, one for each time the spacebar was pressed at this calibration point",
     )
+    session_type: str = Field(
+        default="full",
+        description="Type of calibration session: 'full' (9-point) or 'micro' (5-point hotkey)",
+    )
 
 
 class Calibration(BaseModel):
@@ -66,3 +69,7 @@ class Calibration(BaseModel):
     screen_width: int = Field(..., description="Screen width in pixels")
     screen_height: int = Field(..., description="Screen height in pixels")
     calibration_points: List[CalibrationPoint] = []
+    session_id: str = Field(
+        default="",
+        description="Unique ID grouping multiple calibration checkpoints from same session",
+    )

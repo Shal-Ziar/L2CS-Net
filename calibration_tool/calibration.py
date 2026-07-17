@@ -22,6 +22,7 @@ import cv2
 import numpy as np
 import pygame
 import time
+import uuid
 from calibration_tool.types import (
     Calibration,
     CalibrationPoint,
@@ -308,12 +309,16 @@ class CalibrationInterface:
 
         return True
 
-    def save_calibration(self, output_path: Optional[Path] = None) -> Optional[Path]:
+    def save_calibration(
+        self, output_path: Optional[Path] = None, session_id: str = "", session_type: str = "full"
+    ) -> Optional[Path]:
         """
         Save collected calibration data to JSONL file.
 
         Args:
             output_path: Path to save JSONL file. If None, uses default location with timestamp.
+            session_id: Unique ID grouping calibration checkpoints from same session.
+            session_type: Type of calibration ("full" or "micro").
 
         Returns:
             Path to saved file, or None if no data was collected
@@ -349,6 +354,7 @@ class CalibrationInterface:
                         calibration_point=pt.point_id,
                         GazeResults=GazeResults,
                         pixel_coordinates=[pt.x, pt.y],
+                        session_type=session_type,
                     )
                     calibration_points.append(cal_point)
 
@@ -357,6 +363,7 @@ class CalibrationInterface:
                 screen_height=self.screen_height,
                 screen_width=self.screen_width,
                 calibration_points=calibration_points,
+                session_id=session_id,
             )
             with open(output_path, "a") as f:
                 f.write(calibration.model_dump_json(indent=3))
@@ -477,6 +484,7 @@ class CalibrationSession:
         """
         self.interface = CalibrationInterface(fullscreen=fullscreen, grid_size=grid_size)
         self.gaze_capture = GazeCapture(model_path=model_path, device=device, camera_id=camera_id)
+        self.session_id = str(uuid.uuid4())  # Unique ID for this calibration session
 
     def run(self) -> Optional[Path]:
         """
@@ -510,7 +518,9 @@ class CalibrationSession:
                 print("Calibration aborted or incomplete. No data saved.")
                 return None
 
-            output_path = self.interface.save_calibration()
+            output_path = self.interface.save_calibration(
+                session_id=self.session_id, session_type="full"
+            )
 
             # Generate visualizations
             if output_path:
