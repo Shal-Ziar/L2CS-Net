@@ -47,9 +47,9 @@ gaze_pipeline = Pipeline(
     arch='ResNet50',
     device=torch.device('cpu') # or 'gpu'
 )
- 
+
 cap = cv2.VideoCapture(cam)
-_, frame = cap.read()    
+_, frame = cap.read()
 
 # Process frame and visualize
 results = gaze_pipeline.step(frame)
@@ -146,3 +146,7 @@ This means the code will perform training and store the models to *output/snapsh
 ```
 This means the code will perform testing on snapshot_folder and store the results to *evaluation/L2CS-gaze360*.
 
+## Known Issues
+ - Calibration for individuals isn't ideal. Model has trouble with tilted heads
+ - Personalised calibration improves results somewhat. 5 epochs tried
+ - Need to calculate some error metric to show results.
