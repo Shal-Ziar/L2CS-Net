@@ -18,16 +18,14 @@ Output layout::
 """
 
 import csv
-import uuid
-from pathlib import Path
-from typing import List, Optional, Tuple
-
 import cv2
 import numpy as np
+import uuid
 from batch_face.face_detection import RetinaFace
-
 from calibration_tool.calibration import CalibrationInterface, PointState
 from l2cs import select_device
+from pathlib import Path
+from typing import List, Optional, Tuple
 
 
 class FaceCapture:
@@ -88,12 +86,17 @@ class ImageCollectionSession:
         gpu: str = "0",
         fullscreen: bool = True,
         grid_size: int = 9,
+        dwell_time: float = 8.0,
     ):
         self.session_id = str(uuid.uuid4())
         self.session_dir = output_dir / self.session_id
         self.session_dir.mkdir(parents=True, exist_ok=True)
 
         self.interface = CalibrationInterface(fullscreen=fullscreen, grid_size=grid_size)
+        # Override the class-level default so the user has time to slowly rotate
+        # their head while keeping their eyes fixed on the calibration point.
+        # This diversity of head poses is essential for a robust personalised model.
+        self.interface.RECORDING_DURATION = dwell_time
         self.capture = FaceCapture(camera_id=camera_id, gpu=gpu)
         self._metadata: List[dict] = []
 

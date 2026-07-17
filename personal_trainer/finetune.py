@@ -15,22 +15,19 @@ Two public functions:
 """
 
 import csv
-from datetime import date
-from pathlib import Path
-from typing import Generator
-
 import cv2
 import numpy as np
 import torch
 import torch.nn as nn
+from datetime import date
+from l2cs import getArch, select_device
+from l2cs.utils import prep_input_numpy
+from pathlib import Path
+from personal_trainer.dataset import PersonalDataset
 from safetensors.torch import load_file, save_file
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
-
-from l2cs import getArch, select_device
-from l2cs.utils import prep_input_numpy
-from personal_trainer.dataset import PersonalDataset
-
+from typing import Generator
 
 # ---------------------------------------------------------------------------
 # Parameter-group helpers — identical to train.py so fine-tuning behaviour
@@ -208,12 +205,19 @@ def run_finetune(
         lr,
     )
 
+    # Keep ALL BatchNorm layers in eval mode (running statistics) so that the
+    # model's forward pass is identical to the one used in generate_pseudo_labels,
+    # which calls model.eval().  If any BN layer uses batch statistics here
+    # (batch of 8 user images vs Gaze360 running stats), predictions diverge
+    # from the pseudo-labels and epoch-1 MSE loss explodes — especially for
+    # pitch.  train/eval mode does NOT affect gradient flow or requires_grad.
+    model.eval()
+
     print(
         f"Fine-tuning {arch} for {num_epochs} epoch(s) on {len(dataset)} samples "
         f"(batch={batch_size}, lr={lr})"
     )
 
-    model.train()
     for epoch in range(num_epochs):
         sum_pitch = sum_yaw = n_iter = 0
 

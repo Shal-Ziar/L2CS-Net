@@ -75,6 +75,13 @@ def _add_collect_args(parser: argparse.ArgumentParser, include_gpu: bool = True)
         metavar="{4,9,25}",
         help="Number of calibration points (default: 9)",
     )
+    parser.add_argument(
+        "--dwell-time",
+        type=float,
+        default=8.0,
+        metavar="SEC",
+        help="Seconds to record per calibration point; use ~8 s to allow head rotation (default: 8.0)",
+    )
     if include_gpu:
         _add_gpu_arg(parser)
 
@@ -147,6 +154,7 @@ def _cmd_collect(args: argparse.Namespace) -> Path:
         gpu=args.gpu,
         fullscreen=not args.windowed,
         grid_size=args.grid_size,
+        dwell_time=args.dwell_time,
     )
     return session.run()
 
