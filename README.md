@@ -146,6 +146,73 @@ This means the code will perform training and store the models to *output/snapsh
 ```
 This means the code will perform testing on snapshot_folder and store the results to *evaluation/L2CS-gaze360*.
 
+## CLI Usage
+
+The repository provides several command-line entry points for common workflows. Below are the most-used commands and example invocations; use `-h` on any command to list all flags.
+
+- **Demo (live webcam preview)**: Runs a real-time demo with a model.
+
+```
+python demo.py --snapshot models/L2CSNet_gaze360.pkl --device gpu:0 --cam 0
+```
+
+- **Train (train models)**: Train on a dataset (Gaze360 or MPIIGaze).
+
+```
+python train.py --dataset gaze360 --snapshot output/snapshots --gpu 0 --num_epochs 50 --batch_size 16 --lr 1e-5
+```
+
+- **Test / Evaluate**: Run evaluation over saved snapshots.
+
+```
+python test.py --dataset gaze360 --snapshot output/snapshots/snapshot_folder --evalpath evaluation/L2CS-gaze360 --gpu 0
+```
+
+- **Calibration Tool**: Full-screen calibration UI or background daemon. Use the module entrypoint or the package CLI.
+
+Run full 9-point calibration (interactive):
+
+```
+python -m calibration_tool calibrate --model models/L2CSNet_gaze360.pkl --device gpu:0 --camera 0
+```
+
+Start background micro-calibration daemon (press `c` to collect 5-point checkpoints):
+
+```
+python -m calibration_tool daemon --model models/L2CSNet_gaze360.pkl --device gpu:0 --camera 0
+```
+
+- **Personal Trainer**: Capture personal face crops and fine-tune a model.
+
+Capture face crops during calibration:
+
+```
+python -m personal_trainer collect --output-dir training_data --windowed
+```
+
+Fine-tune using a collected session:
+
+```
+python -m personal_trainer finetune --data-dir training_data/<session-id> --snapshot models/l2cs_gaze360_resnet50.safetensors --epochs 10 --batch-size 8 --lr 1e-5
+```
+
+Full pipeline (collect + finetune):
+
+```
+python -m personal_trainer run --snapshot models/l2cs_gaze360_resnet50.safetensors
+```
+
+- **Virtual Cursor**: Run the interactive cursor using a calibration file.
+
+```
+python -m virtual_cursor --calibration calibration/calibration_YYYY-MM-DD.jsonl --model models/l2cs_gaze360_resnet50.safetensors --device cuda --cam 0 --fullscreen --trial
+```
+
+Notes:
+- Use `-h` or `--help` with any script or module (for example `python demo.py -h`) to see all flags and defaults.
+- Device flags accept values like `cpu`, `gpu:0`, or `cuda` depending on the entry point.
+- Calibration files are JSONL files written by the calibration tool and stored under `calibration_tool/calibration_data/` by default.
+
 ## Known Issues
  - Calibration for individuals isn't ideal. Model has trouble with tilted heads
  - Personalised calibration improves results somewhat. 5 epochs tried
